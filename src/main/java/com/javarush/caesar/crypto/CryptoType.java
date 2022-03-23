@@ -1,4 +1,4 @@
-package com.caesar.crypto;
+package com.javarush.caesar.crypto;
 
  /**
  * Тип действия для вычисления смещения

@@ -1,4 +1,4 @@
-package com.caesar.crypto;
+package com.javarush.caesar.crypto;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -29,6 +29,7 @@ import java.util.TreeMap;
 @Command(name = "cypher", subcommands = CommandLine.HelpCommand.class, description = "Caesar cypher command")
 public class CaesarCypher implements Runnable {
     private static final String FILENAME_PATTERN = "^[\\w]+\\.[\\w]{2,4}$";
+    private static final int READ_BUFFER_SIZE = 1000;
     private static final List<Character> ALPHABET = Arrays.asList('а', 'б', 'в', 'г', 'д', 'е',
             'ё', 'ж', 'з', 'и', 'й', 'к', 'л', 'м', 'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'х',
             'ц', 'ч', 'ш', 'щ', 'ъ', 'ы', 'ь', 'э', 'ю', 'я', 'А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ё',
@@ -42,32 +43,30 @@ public class CaesarCypher implements Runnable {
     /**
      * Шифрует файл.
      *
-     * @param src     файл с текстом для шифрования
-     * @param dest    файл для сохранения зашифрованного текста
-     * @param key     ключ для шифрования
+     * @param sourceFile     файл с текстом для шифрования
+     * @param destinationFile    файл для сохранения зашифрованного текста
+     * @param shiftKey     ключ для шифрования
      */
     @Command(name = "encrypt", description = "Encrypt from file to file using key")
     void encrypt(
-            @Parameters(paramLabel = "<source file>", description = "source file with text to encrypt") File src,
-            @Parameters(paramLabel = "<dest file>", description = "dest file which should have encrypted text") File dest,
-            @Parameters(paramLabel = "<key>", description = "key for encryption") int key) {
+            @Parameters(paramLabel = "<source file>", description = "source file with text to encrypt") File sourceFile,
+            @Parameters(paramLabel = "<dest file>", description = "dest file which should have encrypted text") File destinationFile,
+            @Parameters(paramLabel = "<key>", description = "key for encryption") int shiftKey) {
 
         System.out.println("Start encryption...");
 
-        validateSrc(src);
-        validateDest(dest);
+        validateSourceFile(sourceFile);
+        validateDestinationFile(destinationFile);
+        shiftKey = validateKey(shiftKey);
 
-        try (Reader srcFile = new FileReader(src, Charset.defaultCharset()); Writer destFile = new FileWriter(dest, Charset.defaultCharset())) {
-            int readLength;
-            char[] readBuffer = new char[1000];
-
-            key = validateKey(key);
-
+        try (Reader srcFile = new FileReader(sourceFile, Charset.defaultCharset()); Writer destFile = new FileWriter(destinationFile, Charset.defaultCharset())) {
             while (srcFile.ready()) {
+                int readLength;
+                char[] readBuffer = new char[READ_BUFFER_SIZE];
                 readLength = srcFile.read(readBuffer);
-                for (int i = 0; i < readLength; i++) {
-                    if (ALPHABET.contains(readBuffer[i])) {
-                        readBuffer[i] = ALPHABET.get(calculateShift(ALPHABET.indexOf(readBuffer[i]) + key, CryptoType.ENCRYPT));
+                for (int bufferIndex = 0; bufferIndex < readLength; bufferIndex++) {
+                    if (ALPHABET.contains(readBuffer[bufferIndex])) {
+                        readBuffer[bufferIndex] = ALPHABET.get(calculateShift(ALPHABET.indexOf(readBuffer[bufferIndex]) + shiftKey, CryptoType.ENCRYPT));
                     }
                 }
                 destFile.write(readBuffer, 0, readLength);
@@ -76,11 +75,11 @@ public class CaesarCypher implements Runnable {
         } catch (FileNotFoundException e) {
             throw new CommandLine.ParameterException(spec.commandLine(),
                     String.format("Invalid values '%s' or '%s' for options '<source file>' or '<dest file>': " +
-                            "FileNotFound", src.getName(), dest.getName()));
+                            "FileNotFound", sourceFile.getName(), destinationFile.getName()));
         } catch (IOException e) {
             throw new CommandLine.ParameterException(spec.commandLine(),
                     String.format("Invalid values '%s' or '%s' for options '<source file>' or '<dest file>': " +
-                            "IOException. Please check permissions to create or write file.", src.getName(), dest.getName()));
+                            "IOException. Please check permissions to create or write file.", sourceFile.getName(), destinationFile.getName()));
         }
 
         System.out.println("Encryption is successfully ended.");
@@ -89,32 +88,30 @@ public class CaesarCypher implements Runnable {
     /**
      * Расшифровывает файл.
      *
-     * @param src     файл с зашифрованным текстом
-     * @param dest    файл для сохранения расшифрованного текста
-     * @param key     ключ для расшифровки
+     * @param sourceFile     файл с зашифрованным текстом
+     * @param destinationFile    файл для сохранения расшифрованного текста
+     * @param shiftKey     ключ для расшифровки
      */
     @Command(name = "decrypt", description = "Decrypt from file to file using statistical analysis")
     void decrypt(
-            @Parameters(paramLabel = "<source file>", description = "source file with encrypted text") File src,
-            @Parameters(paramLabel = "<dest file>", description = "dest file which should have decrypted text") File dest,
-            @Parameters(paramLabel = "<key>", description = "key for encryption") int key) {
+            @Parameters(paramLabel = "<source file>", description = "source file with encrypted text") File sourceFile,
+            @Parameters(paramLabel = "<dest file>", description = "dest file which should have decrypted text") File destinationFile,
+            @Parameters(paramLabel = "<key>", description = "key for encryption") int shiftKey) {
 
         System.out.println("Start decryption...");
 
-        validateSrc(src);
-        validateDest(dest);
+        validateSourceFile(sourceFile);
+        validateDestinationFile(destinationFile);
+        shiftKey = validateKey(shiftKey);
 
-        try (Reader srcFile = new FileReader(src, Charset.defaultCharset()); Writer destFile = new FileWriter(dest, Charset.defaultCharset())) {
-            int readLength;
-            char[] readBuffer = new char[1000];
-
-            key = validateKey(key);
-
+        try (Reader srcFile = new FileReader(sourceFile, Charset.defaultCharset()); Writer destFile = new FileWriter(destinationFile, Charset.defaultCharset())) {
             while (srcFile.ready()) {
+                int readLength;
+                char[] readBuffer = new char[READ_BUFFER_SIZE];
                 readLength = srcFile.read(readBuffer);
-                for (int i = 0; i < readLength; i++) {
-                    if (ALPHABET.contains(readBuffer[i])) {
-                        readBuffer[i] = ALPHABET.get(calculateShift(ALPHABET.indexOf(readBuffer[i]) - key, CryptoType.DECRYPT));
+                for (int bufferIndex = 0; bufferIndex < readLength; bufferIndex++) {
+                    if (ALPHABET.contains(readBuffer[bufferIndex])) {
+                        readBuffer[bufferIndex] = ALPHABET.get(calculateShift(ALPHABET.indexOf(readBuffer[bufferIndex]) - shiftKey, CryptoType.DECRYPT));
                     }
                 }
                 destFile.write(readBuffer, 0, readLength);
@@ -123,11 +120,11 @@ public class CaesarCypher implements Runnable {
         } catch (FileNotFoundException e) {
             throw new CommandLine.ParameterException(spec.commandLine(),
                     String.format("Invalid values '%s' or '%s' for options '<source file>' or '<dest file>': " +
-                            "FileNotFound", src.getName(), dest.getName()));
+                            "FileNotFound", sourceFile.getName(), destinationFile.getName()));
         } catch (IOException e) {
             throw new CommandLine.ParameterException(spec.commandLine(),
                     String.format("Invalid values '%s' or '%s' for options '<source file>' or '<dest file>': " +
-                            "IOException. Please check permissions to create or write file.", src.getName(), dest.getName()));
+                            "IOException. Please check permissions to create or write file.", sourceFile.getName(), destinationFile.getName()));
         }
 
         System.out.println("Decryption is successfully ended.");
@@ -136,15 +133,15 @@ public class CaesarCypher implements Runnable {
     /**
      * Выполняет взлом (брутфорс) текста по всем возможным ключам и сравниваем его со словарем, сформированным из representative file.
      *
-     * @param src                    файл с зашифрованным текстом
+     * @param sourceFile                    файл с зашифрованным текстом
      * @param representativeFile     файл с незашифрованным репрезентативным текстом
-     * @param dest                   файл для сохранения расшифрованного текста
+     * @param destinationFile                   файл для сохранения расшифрованного текста
      */
     @Command(name = "brute-force", description = "Decrypt from file to file using brute force")
     void bruteForce(
-            @Parameters(paramLabel = "<source file>", description = "source file with encrypted text") File src,
+            @Parameters(paramLabel = "<source file>", description = "source file with encrypted text") File sourceFile,
             @Parameters(paramLabel = "<representative file>", description = "file with unencrypted representative text") File representativeFile,
-            @Parameters(paramLabel = "<dest file>", description = "dest file which should have decrypted text") File dest) {
+            @Parameters(paramLabel = "<dest file>", description = "dest file which should have decrypted text") File destinationFile) {
 
         System.out.println("Start brute-force...");
 
@@ -152,38 +149,39 @@ public class CaesarCypher implements Runnable {
         Map<Integer, Integer> matchesByKey = new TreeMap<>();
         int bestKey;
 
-        validateSrc(src);
-        validateSrc(representativeFile);
-        validateDest(dest);
+        validateSourceFile(sourceFile);
+        validateSourceFile(representativeFile);
+        validateDestinationFile(destinationFile);
         fillDictionary(representativeFile, dictionary);
 
         System.out.println("Start brute-force by all keys...");
         for (int key = 0; key <= ALPHABET.size(); key++) {
-            try (Reader srcFile = new FileReader(src, Charset.defaultCharset())) {
-                int readLength;
-                char[] readBuffer = new char[1000];
+            try (Reader srcFile = new FileReader(sourceFile, Charset.defaultCharset())) {
+
                 StringBuilder checkBuffer = new StringBuilder();
 
                 while (srcFile.ready()) {
+                    int readLength;
+                    char[] readBuffer = new char[READ_BUFFER_SIZE];
                     readLength = srcFile.read(readBuffer);
-                    for (int i = 0; i < readLength; i++) {
-                        if (ALPHABET.contains(readBuffer[i])) {
-                            readBuffer[i] = ALPHABET.get(calculateShift(ALPHABET.indexOf(readBuffer[i]) - key, CryptoType.DECRYPT));
+                    for (int bufferIndex = 0; bufferIndex < readLength; bufferIndex++) {
+                        if (ALPHABET.contains(readBuffer[bufferIndex])) {
+                            readBuffer[bufferIndex] = ALPHABET.get(calculateShift(ALPHABET.indexOf(readBuffer[bufferIndex]) - key, CryptoType.DECRYPT));
                         }
                     }
                     checkBuffer.append(readBuffer);
                 }
 
-                matchesByKey.put(key, matchesByDict(checkBuffer, dictionary));
+                matchesByKey.put(key, matchesByDictionary(checkBuffer, dictionary));
 
             } catch (FileNotFoundException e) {
                 throw new CommandLine.ParameterException(spec.commandLine(),
                         String.format("Invalid value '%s' for options '<source file>': " +
-                                "FileNotFound", src.getName()));
+                                "FileNotFound", sourceFile.getName()));
             } catch (IOException e) {
                 throw new CommandLine.ParameterException(spec.commandLine(),
                         String.format("Invalid values '%s' for options '<source file>': " +
-                                "IOException. Please check permissions to create or write file.", src.getName()));
+                                "IOException. Please check permissions to create or write file.", sourceFile.getName()));
             }
         }
 
@@ -194,7 +192,7 @@ public class CaesarCypher implements Runnable {
 
         bestKey = Collections.max(matchesByKey.entrySet(), Comparator.comparingInt(Map.Entry::getValue)).getKey();
         System.out.println("Best key: " + bestKey + ". Using this key for the final decryption...");
-        decrypt(src, dest, bestKey);
+        decrypt(sourceFile, destinationFile, bestKey);
 
         System.out.println("Brute-force is successfully ended.");
     }
@@ -224,7 +222,7 @@ public class CaesarCypher implements Runnable {
      *
      * @param file файл с текстом
      */
-    private void validateSrc(File file) {
+    private void validateSourceFile(File file) {
         System.out.println("Validating source or representative file...");
 
         if (!file.isFile() || !file.exists() || !file.getName().matches(FILENAME_PATTERN)) {
@@ -239,7 +237,7 @@ public class CaesarCypher implements Runnable {
      *
      * @param file файл с текстом
      */
-    private void validateDest(File file) {
+    private void validateDestinationFile(File file) {
         System.out.println("Validating desination file...");
 
         if (!file.isFile() || !file.getName().matches(FILENAME_PATTERN)) {
@@ -330,7 +328,7 @@ public class CaesarCypher implements Runnable {
      * @param checkBuffer буфер с расшифрованным текстом
      * @param dictionary  словарь
      */
-    private int matchesByDict(StringBuilder checkBuffer, Set<String> dictionary) {
+    private int matchesByDictionary(StringBuilder checkBuffer, Set<String> dictionary) {
         int match = 0;
 
         try (Scanner checkBufferSc = new Scanner(String.valueOf(checkBuffer))) {
